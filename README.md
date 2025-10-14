@@ -23,8 +23,9 @@ ChatAPP: Sunucu tarafı. Belirtilen portu dinler, istemcileri kabul eder ve mesa
 
 ChatClient: İstemci tarafı. Kullanıcı adı ve IP/Port bilgisiyle sunucuya bağlanır ve mesaj gönderip alır.
 
- Çalıştırma
-ChatAPP ve ChatClient dosyalarını birlikte çalıştırın.
+Çalıştırma
+
+ChatAPP ve ChatClient zip dosyalarını birlikte çalıştırın.
 
 Sunucu penceresinde Başlat butonuna tıklayın. (Sunucu 5000 portunda başlatıldı... mesajını görmelisiniz.)
 
