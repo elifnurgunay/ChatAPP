@@ -1,166 +1,159 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace ChatAPP
+namespace ChatClient
 {
     public partial class Form1 : Form
     {
-        // Bağlı olan tüm istemcileri tutacağımız liste
-        private List<TcpClient> clients = new List<TcpClient>();
-        private TcpListener listener;
+        // IP ve Port'u burada SABİT YAPIYORUZ (Sunucu koduyla aynı olmalı)
+        private const string SERVER_IP = "127.0.0.1";
+        private const int SERVER_PORT = 8888;
+
+        private TcpClient client;
+        private NetworkStream stream;
 
         public Form1()
         {
             InitializeComponent();
+            // Form yüklenirken gönderim butonunu devre dışı bırakalım (Sadece bağlantı sonrası aktif olacak)
+            btnSend.Enabled = false;
+            this.btnSend.Click += new System.EventHandler(this.btnSend_Click);
         }
 
-        // Sunucuyu Başlat butonuna çift tıkladığınızda bu metot çalışır.
-        private void btnStart_Click(object sender, EventArgs e)
+        // Bağlan Butonu Olayı (btnConnect_Click)
+        private void btnConnect_Click(object sender, EventArgs e)
         {
+            if (string.IsNullOrEmpty(txtUsername.Text))
+            {
+                MessageBox.Show("Lütfen bir kullanıcı adı girin.", "Uyarı");
+                return;
+            }
+
             try
             {
-                // Sunucuyu 127.0.0.1 (localhost) IP'sinde ve 8888 portunda başlat
-                listener = new TcpListener(IPAddress.Parse("127.0.0.1"), 8888);
-                listener.Start();
+                client = new TcpClient();
+                // Sabit IP ve Port'a bağlanıyoruz
+                client.Connect(SERVER_IP, SERVER_PORT);
 
-                Log("Sunucu başlatıldı. İstemciler bekleniyor...");
-                btnStart.Enabled = false; // Sunucu başladıktan sonra butonu devre dışı bırak.
+                stream = client.GetStream();
+                btnConnect.Enabled = false;
+                btnSend.Enabled = true; // Gönder butonunu aktif et
+                txtUsername.ReadOnly = true;
 
-                // UI'ın donmaması için yeni bağlantıları ayrı bir Task (thread) içinde bekle
-                Task.Run(() => ListenForClients());
+                // Mesaj dinlemeyi başlat
+                Task.Run(() => ReceiveMessages());
+
+                AppendToChat("[SİSTEM] Sunucuya başarıyla bağlandı. Mesajlaşmaya başlayabilirsiniz.");
+                SendInitialMessage($"[SİSTEM] {txtUsername.Text} sohbete katıldı.");
             }
             catch (Exception ex)
             {
-                Log($"Hata: Sunucu başlatılamadı: {ex.Message}");
+                // Bağlanılamazsa hata mesajı verilir
+                MessageBox.Show($"[HATA] Sunucuya bağlanılamadı. Kod: {ex.Message}", "Bağlantı Hatası");
             }
         }
 
-        private async Task ListenForClients()
+        // Gönder Butonu Olayı (btnSend_Click)
+        private void btnSend_Click(object sender, EventArgs e)
+        {
+            if (client == null || !client.Connected || string.IsNullOrEmpty(txtMessage.Text))
+            {
+                txtMessage.Clear();
+                return;
+            }
+
+            try
+            {
+                string rawMessage = txtMessage.Text;
+                string messageToSend = $"[{txtUsername.Text}] {rawMessage}";
+
+                byte[] buffer = Encoding.UTF8.GetBytes(messageToSend);
+                stream.Write(buffer, 0, buffer.Length);
+
+                // Kendi gönderdiğimiz mesajı hemen ekranda göster
+                AppendToChat($"[SİZ] {rawMessage}");
+                txtMessage.Clear();
+            }
+            catch (Exception ex)
+            {
+                AppendToChat($"[HATA] Mesaj gönderilemedi: {ex.Message}");
+                client.Close();
+            }
+        }
+
+        // Sunucuya bilgi mesajı gönderme (Katılım/Ayrılma)
+        private void SendInitialMessage(string message)
         {
             try
             {
-                while (true)
+                if (client != null && client.Connected)
                 {
-                    // Yeni bir istemci bağlantısını kabul et
-                    TcpClient client = await listener.AcceptTcpClientAsync();
-
-                    // clients listesi kilitli iken ekleme yapıyoruz
-                    lock (clients)
-                    {
-                        clients.Add(client);
-                    }
-
-                    string clientIP = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
-                    Log($"Yeni bir istemci bağlandı: {clientIP}");
-
-                    // Her istemci için mesajları dinleyecek ayrı bir Task başlat
-                    Task.Run(() => HandleClient(client));
+                    byte[] buffer = Encoding.UTF8.GetBytes(message);
+                    stream.Write(buffer, 0, buffer.Length);
                 }
             }
-            catch (SocketException ex) when (ex.ErrorCode == 10004)
-            {
-                // listener.Stop() çağrıldığında oluşan yaygın bir hata. Göz ardı edilebilir.
-                Log("Sunucu dinlemesi durduruldu.");
-            }
-            catch (Exception ex)
-            {
-                Log($"Genel Sunucu Hatası: {ex.Message}");
-            }
+            catch (Exception) { /* Hata görmezden gelindi */ }
         }
 
-        private async Task HandleClient(TcpClient client)
+        // Sunucudan sürekli mesaj dinleme metodu
+        private async Task ReceiveMessages()
         {
-            NetworkStream stream = null;
-            string clientID = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
+            byte[] buffer = new byte[1024];
+            int bytesRead;
 
             try
             {
-                stream = client.GetStream();
-                byte[] buffer = new byte[1024];
-                int bytesRead;
-
-                while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                while (client.Connected && (bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
                 {
                     string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                    Log($"Alınan mesaj ({clientID}): {message}");
-
-                    // Gelen mesajı diğer tüm istemcilere yayınla
-                    BroadcastMessage(message, client);
+                    AppendToChat(message); // Gelen mesajı ekrana bas
                 }
             }
             catch (Exception)
             {
-                // Hata veya bağlantı kopması durumunda
+                AppendToChat("[SİSTEM] Sunucu ile bağlantı koptu.");
             }
             finally
             {
-                Log($"İstemci bağlantısı koptu veya kapatıldı: {clientID}");
-
-                // clients listesi kilitli iken kaldırıyoruz
-                lock (clients)
+                if (client != null)
                 {
-                    clients.Remove(client);
-                }
-                client.Close();
-                // Opsiyonel: Diğer istemcilere ayrılma mesajı yayınlayabilirsiniz.
-            }
-        }
-
-        private void BroadcastMessage(string message, TcpClient excludeClient)
-        {
-            byte[] buffer = Encoding.UTF8.GetBytes(message);
-
-            // Kilitleme (Lock) işlemi, client listesi üzerinde işlem yapılırken (ekleme/çıkarma) hata oluşmasını engeller.
-            lock (clients)
-            {
-                for (int i = clients.Count - 1; i >= 0; i--)
-                {
-                    TcpClient client = clients[i];
-                    // Kendisi hariç ve bağlı olan istemcilere gönder
-                    if (client != excludeClient && client.Connected)
+                    client.Close();
+                    // UI güncellemeleri için Invoke kullan (Thread-safe)
+                    this.Invoke((MethodInvoker)delegate
                     {
-                        try
-                        {
-                            NetworkStream stream = client.GetStream();
-                            stream.Write(buffer, 0, buffer.Length);
-                        }
-                        catch (Exception)
-                        {
-                            // Mesaj gönderilemeyen istemciyi listeden çıkar
-                            Log($"Bir istemciye mesaj gönderilemedi. Bağlantı kesiliyor.");
-                            clients.RemoveAt(i);
-                            client.Close();
-                        }
-                    }
+                        btnConnect.Enabled = true;
+                        btnSend.Enabled = false;
+                        txtUsername.ReadOnly = false;
+                    });
                 }
             }
         }
 
-        // RichTextBox'a log yazmak için yardımcı metod (Thread-safe)
-        private void Log(string message)
+        // RichTextBox'a mesaj eklemek için yardımcı metod (Thread-safe)
+        private void AppendToChat(string message)
         {
-            // Eğer farklı bir thread'den çağrılıyorsa (Task.Run metotları gibi)
-            if (this.rtbLog.InvokeRequired)
+            if (this.rtbChat.InvokeRequired)
             {
-                // UI thread'ine geçerek metodu tekrar çağır
-                this.rtbLog.Invoke(new Action<string>(Log), message);
+                this.rtbChat.Invoke(new Action<string>(AppendToChat), message);
                 return;
             }
-            // UI thread'indeysen metni ekle
-            this.rtbLog.AppendText($"{DateTime.Now:HH:mm:ss} - {message}\n");
-            // Otomatik olarak aşağı kaydır
-            this.rtbLog.ScrollToCaret();
+            this.rtbChat.AppendText(message + Environment.NewLine);
+            this.rtbChat.ScrollToCaret();
         }
 
-        // Form kapanırken sunucuyu durdur
+        // Form kapanırken bağlantıyı kapat
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
-            listener?.Stop();
+            if (client != null && client.Connected)
+            {
+                SendInitialMessage($"[SİSTEM] {txtUsername.Text} sohbetten ayrıldı.");
+            }
+
+            stream?.Close();
+            client?.Close();
         }
     }
 }
