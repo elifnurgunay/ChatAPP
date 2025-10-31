@@ -34,26 +34,29 @@
             // 
             // rtbLog
             // 
-            this.rtbLog.Location = new System.Drawing.Point(52, 38);
+            this.rtbLog.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(192)))), ((int)(((byte)(255)))), ((int)(((byte)(255)))));
+            this.rtbLog.Location = new System.Drawing.Point(52, 55);
             this.rtbLog.Name = "rtbLog";
-            this.rtbLog.Size = new System.Drawing.Size(465, 359);
+            this.rtbLog.Size = new System.Drawing.Size(665, 383);
             this.rtbLog.TabIndex = 0;
             this.rtbLog.Text = "";
             // 
             // btnStart
             // 
-            this.btnStart.Location = new System.Drawing.Point(548, 374);
+            this.btnStart.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(192)))), ((int)(((byte)(255)))));
+            this.btnStart.Location = new System.Drawing.Point(52, 12);
             this.btnStart.Name = "btnStart";
-            this.btnStart.Size = new System.Drawing.Size(75, 23);
+            this.btnStart.Size = new System.Drawing.Size(192, 35);
             this.btnStart.TabIndex = 1;
             this.btnStart.Text = "Sunucuyu Başlat";
-            this.btnStart.UseVisualStyleBackColor = true;
+            this.btnStart.UseVisualStyleBackColor = false;
             this.btnStart.Click += new System.EventHandler(this.btnStart_Click);
             // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.BackColor = System.Drawing.SystemColors.ActiveCaption;
             this.ClientSize = new System.Drawing.Size(800, 450);
             this.Controls.Add(this.btnStart);
             this.Controls.Add(this.rtbLog);
