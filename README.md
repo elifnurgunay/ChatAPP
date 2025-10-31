@@ -1,5 +1,6 @@
 # Bu README dosyası, projenin amacını, özelliklerini, kurulumunu ve bileşenlerini açıklar.
-![Uploading image.png…]()
+<img width="1651" height="548" alt="image" src="https://github.com/user-attachments/assets/5c759c94-568f-4910-a388-7a6156f75ecd" />
+
 
 C# TCP Çok Kullanıcılı Sohbet Uygulaması Bu proje, C# ve Windows Forms (.NET Framework) kullanılarak geliştirilmiş, iki yönlü haberleşme (Sunucu-İstemci) sağlayabilen temel bir sohbet uygulamasıdır. Amacı, ağ programlama (Socket programlama) temellerini ve TcpListener / TcpClient sınıflarının kullanımını göstermektir.
 
